@@ -1,106 +1,83 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from analyze import analyze
+from google import genai
+import json
 
-import requests
-import whois
-import os
-import re
+# =========================
+# CONFIG
+# =========================
 
-from dotenv import load_dotenv
-
-load_dotenv()
+GEMINI_API_KEY = "nigga balls"
+client = genai.Client(api_key=GEMINI_API_KEY)
 
 app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-VT_API_KEY = os.getenv("VT_API_KEY")
-
-URL_REGEX = re.compile(
-    r"^(https?://)?"
-    r"(([a-zA-Z0-9\-]+\.)+[a-zA-Z]{2,})"
-    r"(:\d+)?"
-    r"(/[^\s]*)?"
-    r"$"
-)
+# Import and mount the chat router
+from chat import router as chat_router
+app.include_router(chat_router)
 
 
-def is_url(text: str) -> bool:
-    text = text.strip()
-    if len(text.split()) > 1:
-        return False
-    return bool(URL_REGEX.match(text))
+# =========================
+# REQUEST MODEL
+# =========================
+
+class ScanRequest(BaseModel):
+    text: str
 
 
-def normalize_url(text: str) -> str:
-    text = text.strip()
-    if not text.startswith("http://") and not text.startswith("https://"):
-        return "https://" + text
-    return text
+# =========================
+# SCANNER ENDPOINT
+# =========================
 
+@app.post("/scan")
+async def scan(data: ScanRequest):
+    prompt = f"""You are a cybersecurity AI agent specialized in detecting online scams, phishing, and malicious content.
 
-class AnalyzeRequest(BaseModel):
-    input: str
+Analyze the following message or URL:
 
+{data.text}
 
-def check_virustotal(url):
-    if not VT_API_KEY:
-        return None
+Think step by step:
+1. Is this a URL or a text message?
+2. What suspicious signals do you see? (domain tricks, urgency, prize claims, credential requests, lookalike names, etc.)
+3. What category does this fall into?
+4. What is the risk level?
+
+Return ONLY valid JSON — no markdown, no backticks, no extra text:
+
+{{
+    "status": "SAFE",
+    "category": "Phishing",
+    "risk": "82%",
+    "reason": "One or two sentence explanation of why this is suspicious or safe."
+}}
+
+status must be exactly one of: SAFE, SUSPICIOUS, MALICIOUS
+category examples: Phishing, Scam, Malware, Spam, Fake Giveaway, Credential Harvesting, Safe
+"""
+
+    response = client.models.generate_content(
+        model="gemini-2.5-flash",
+        contents=prompt
+    )
+
     try:
-        headers = {"x-apikey": VT_API_KEY}
-        response = requests.post(
-            "https://www.virustotal.com/api/v3/urls",
-            headers=headers,
-            data={"url": url},
-            timeout=10
-        )
-        if response.status_code != 200:
-            return None
-        return "checked"
+        cleaned = response.text.strip().replace("```json", "").replace("```", "").strip()
+        result = json.loads(cleaned)
+        return result
     except Exception:
-        return None
-
-
-def get_whois_info(domain: str):
-    try:
-        data = whois.whois(domain)
         return {
-            "country": data.country,
-            "creation_date": str(data.creation_date)
+            "status": "SUSPICIOUS",
+            "category": "Unknown",
+            "risk": "50%",
+            "reason": response.text
         }
-    except Exception:
-        return None
-
-
-@app.post("/analyze")
-def analyze_endpoint(request: AnalyzeRequest):
-    user_input = request.input.strip()
-
-    input_is_url = is_url(user_input)
-    normalized = normalize_url(user_input) if input_is_url else None
-
-    ai_result = analyze(user_input, input_type="url" if input_is_url else "text")
-
-    vt_result = None
-    whois_result = None
-
-    if input_is_url and normalized:
-        domain = re.sub(r"https?://", "", normalized).split("/")[0]
-        vt_result = check_virustotal(normalized)
-        whois_result = get_whois_info(domain)
-
-    return {
-        "verdict": ai_result.get("verdict"),
-        "risk_level": ai_result.get("risk_level"),
-        "explanation": ai_result.get("explanation"),
-        "input_type": "url" if input_is_url else "text",
-        "virustotal": vt_result,
-        "whois": whois_result
-    }
