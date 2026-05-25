@@ -1,1 +1,496 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ScamShield — AI Monitoring</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        // Enable Tailwind dark mode via class on <html>
+        tailwind.config = { darkMode: 'class' };
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        #chat-messages::-webkit-scrollbar { width: 4px; }
+        #chat-messages::-webkit-scrollbar-track { background: transparent; }
+        #chat-messages::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        .dark #chat-messages::-webkit-scrollbar-thumb { background: #475569; }
+    </style>
+</head>
+<body class="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 min-h-screen flex flex-col justify-between transition-colors duration-300">
 
+    <header class="border-b sticky top-0 z-40 shadow-sm backdrop-blur-md bg-white/80 dark:bg-slate-900/80 border-slate-200 dark:border-slate-700 transition-colors duration-300">
+        <div class="max-w-7xl mx-auto px-6 py-4 flex flex-col sm:flex-row justify-between items-center gap-4">
+            <div class="flex items-center space-x-2">
+                <span class="text-3xl">🛡</span>
+                <h1 class="text-2xl font-black tracking-tight">
+                    Scam<span class="text-blue-600">Shield</span>
+                </h1>
+            </div>
+            <div class="flex flex-wrap items-center justify-center gap-3">
+                <button id="theme-toggle" class="text-xs font-bold px-3 py-2 rounded-xl border bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-600 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-all">
+                    🌙 <span data-i18n="darkBtn">Тёмная</span>
+                </button>
+                <div class="flex rounded-xl p-0.5 border bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-600">
+                    <button id="lang-ru" class="text-xs font-black px-2.5 py-1.5 rounded-lg transition-all bg-blue-600 text-white">RU</button>
+                    <button id="lang-kg" class="text-xs font-black px-2.5 py-1.5 rounded-lg transition-all text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300">KG</button>
+                </div>
+                <button id="cabinet-btn" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-4 py-2 rounded-xl transition-all shadow-md shadow-blue-500/20">
+                    <span data-i18n="cabinet">Личный кабинет</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl w-full mx-auto px-6 py-8 flex-grow grid grid-cols-1 lg:grid-cols-3 gap-8">
+
+        <div class="lg:col-span-2 space-y-8">
+
+            <div class="border rounded-3xl p-6 md:p-8 shadow-xl bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 transition-colors duration-300">
+                <div class="text-center md:text-left mb-6">
+                    <span class="text-[10px] font-bold text-blue-600 uppercase tracking-widest bg-blue-50 dark:bg-blue-950 px-3 py-1 rounded-full" data-i18n="badge">
+                        ИИ Мониторинг Безопасности
+                    </span>
+                    <h2 class="text-3xl font-extrabold tracking-tight mt-3 mb-2" data-i18n="scanTitle">Проверить на фишинг и скам</h2>
+                    <p class="text-slate-400 dark:text-slate-500 text-sm" data-i18n="scanDesc">Вставьте ссылку или подозрительное сообщение — нейросеть ATLAS мгновенно определит угрозу.</p>
+                </div>
+
+                <div class="border rounded-2xl p-2 flex flex-col md:flex-row items-center gap-2 transition-all shadow-inner mb-6 bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-600 focus-within:border-blue-500">
+                    <input
+                        type="text"
+                        id="url-input"
+                        data-i18n-placeholder="scanPlaceholder"
+                        placeholder="Ссылка или текст сообщения... (например, instagram-security.com)"
+                        class="w-full bg-transparent px-4 py-3 focus:outline-none text-sm md:text-base font-mono text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500"
+                    />
+                    <button
+                        id="check-btn"
+                        class="w-full md:w-auto bg-blue-600 hover:bg-blue-700 text-white font-bold px-8 py-3.5 rounded-xl transition-all active:scale-95 text-sm md:text-base shadow-lg shadow-blue-500/20 whitespace-nowrap"
+                    >
+                        <span data-i18n="scanBtn">Запустить тест</span>
+                    </button>
+                </div>
+
+                <div id="loading-screen" class="hidden border rounded-2xl p-8 text-center space-y-3 bg-blue-50 dark:bg-blue-950/40 border-blue-100 dark:border-blue-900">
+                    <div class="w-10 h-10 border-4 border-t-blue-600 border-slate-200 dark:border-slate-600 rounded-full animate-spin mx-auto"></div>
+                    <p class="text-sm font-semibold text-blue-600 dark:text-blue-400" data-i18n="scanning">Нейросеть анализирует домен, структуру и паттерны обмана...</p>
+                </div>
+
+                <div id="verdict-screen" class="hidden border rounded-2xl p-6 text-left shadow-md transition-all duration-300">
+                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-4 border-b border-slate-200 dark:border-slate-600 pb-3">
+                        <div>
+                            <span class="text-[10px] font-mono text-slate-400 uppercase tracking-wider block" data-i18n="targetLabel">Цель проверки</span>
+                            <span id="result-url" class="text-base font-bold font-mono break-all"></span>
+                        </div>
+                        <span id="result-status-badge" class="px-3 py-1 rounded-xl text-xs font-bold font-mono tracking-wider whitespace-nowrap"></span>
+                    </div>
+                    <p id="result-reason" class="text-sm leading-relaxed mb-4 text-slate-700 dark:text-slate-300"></p>
+                    <div class="flex justify-between items-center text-xs font-semibold text-slate-400 dark:text-slate-500">
+                        <span><span data-i18n="catLabel">Категория</span>: <strong id="result-type" class="text-slate-700 dark:text-slate-300"></strong></span>
+                        <span><span data-i18n="riskLabel">Вероятность угрозы</span>: <strong id="result-risk" class="text-slate-700 dark:text-slate-300"></strong></span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="border rounded-3xl p-6 shadow-sm bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 transition-colors duration-300">
+                <h3 class="text-md font-bold mb-3 flex items-center space-x-2">
+                    <span>📋</span> <span data-i18n="historyTitle">Журнал проверок сессии</span>
+                </h3>
+                <div id="history-list" class="space-y-2">
+                    <p id="history-empty" class="text-xs text-slate-400 dark:text-slate-500 text-center py-4" data-i18n="historyEmpty">Результаты проверок появятся здесь.</p>
+                </div>
+            </div>
+
+            <div class="bg-gradient-to-r from-slate-900 to-blue-950 text-white rounded-3xl p-6 shadow-lg">
+                <h3 class="text-base font-bold mb-2 flex items-center space-x-2">
+                    <span>🚨</span> <span data-i18n="sosTitle">Куда обращаться, если вас обманули?</span>
+                </h3>
+                <p class="text-xs text-slate-300 mb-4" data-i18n="sosDesc">Если вы уже ввели данные карты или отправили деньги — действуйте немедленно:</p>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <a href="tel:102" class="bg-white/10 hover:bg-white/20 border border-white/10 p-3 rounded-xl flex items-center space-x-3 transition-all">
+                        <span class="text-xl">📞</span>
+                        <div>
+                            <h4 class="text-xs font-bold" data-i18n="sos1">Служба 102</h4>
+                            <p class="text-[10px] text-slate-400" data-i18n="sos1sub">МВД Киберполиция</p>
+                        </div>
+                    </a>
+                    <a href="https://t.me/Mvd_Cyber_Bot" target="_blank" class="bg-blue-600/30 hover:bg-blue-600/50 border border-blue-500/30 p-3 rounded-xl flex items-center space-x-3 transition-all">
+                        <span class="text-xl">✈️</span>
+                        <div>
+                            <h4 class="text-xs font-bold" data-i18n="sos2">Telegram Бот</h4>
+                            <p class="text-[10px] text-blue-300" data-i18n="sos2sub">Подать жалобу на скам</p>
+                        </div>
+                    </a>
+                    <div class="bg-white/5 border border-white/5 p-3 rounded-xl flex items-center space-x-3">
+                        <span class="text-xl">💳</span>
+                        <div>
+                            <h4 class="text-xs font-bold" data-i18n="sos3">Ваш Банк</h4>
+                            <p class="text-[10px] text-slate-400" data-i18n="sos3sub">Блокировка карт 24/7</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="border rounded-3xl p-5 shadow-xl flex flex-col min-h-[450px] lg:h-[calc(100vh-140px)] lg:sticky lg:top-24 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 transition-colors duration-300">
+            <div class="flex items-center space-x-2 border-b border-slate-100 dark:border-slate-700 pb-3 mb-4">
+                <div class="w-2.5 h-2.5 bg-green-500 rounded-full animate-ping"></div>
+                <h3 class="text-sm font-bold flex items-center space-x-1.5">
+                    <span>🤖</span> <span data-i18n="chatTitle">Консультант ATLAS AI</span>
+                </h3>
+            </div>
+
+            <div id="chat-messages" class="flex-1 space-y-3 overflow-y-auto text-xs pr-1 mb-4">
+                <div class="flex items-start gap-2">
+                    <div class="w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center text-blue-600 shrink-0 mt-0.5">🤖</div>
+                    <div class="bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-600 rounded-2xl rounded-tl-sm px-3 py-2.5 max-w-[85%]">
+                        <p class="text-slate-700 dark:text-slate-300 leading-relaxed" data-i18n="chatWelcome">Привет! Я ATLAS — ваш ИИ-консультант по кибербезопасности. Опишите подозрительное сообщение или ссылку, и я помогу разобраться.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="border-t border-slate-100 dark:border-slate-700 pt-3 flex items-center gap-2">
+                <input
+                    type="text"
+                    id="chat-input"
+                    data-i18n-placeholder="chatPlaceholder"
+                    placeholder="Спроси у ATLAS (напр: выиграла приз)..."
+                    class="w-full border px-3 py-2.5 rounded-xl text-xs focus:outline-none focus:border-blue-500 bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-600 text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500"
+                />
+                <button id="chat-send-btn" class="bg-blue-600 text-white font-bold p-2.5 rounded-xl text-xs hover:bg-blue-700 transition-all shrink-0">➤</button>
+            </div>
+        </div>
+
+    </main>
+
+    <footer class="border-t text-center text-xs py-4 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-400 dark:text-slate-500 transition-colors duration-300">
+        <p data-i18n="footer">© 2026 ScamShield. Разработано на хакатоне AI-Менеджмента.</p>
+    </footer>
+
+    <div id="login-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
+        <div class="p-6 rounded-3xl w-full max-w-md shadow-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700">
+            <div class="flex border-b border-slate-100 dark:border-slate-700 mb-4">
+                <button type="button" id="tab-login" class="w-1/2 pb-3 text-sm font-bold border-b-2 border-blue-600 text-blue-600" data-i18n="loginTab">Вход</button>
+                <button type="button" id="tab-register" class="w-1/2 pb-3 text-sm font-bold border-b-2 border-transparent text-slate-400 dark:text-slate-500" data-i18n="registerTab">Регистрация</button>
+            </div>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1" data-i18n="loginLabel">Логин / Email</label>
+                    <input type="text" placeholder="it_student" class="w-full border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-blue-500 bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-600 text-slate-800 dark:text-slate-100" />
+                </div>
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1" data-i18n="passLabel">Пароль</label>
+                    <input type="password" placeholder="••••••••" class="w-full border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-blue-500 bg-slate-50 dark:bg-slate-800 border-slate-600 dark:border-slate-600 text-slate-800 dark:text-slate-100" />
+                </div>
+                <div class="flex gap-2 pt-2">
+                    <button id="modal-cancel-btn" class="w-1/3 font-bold py-2.5 rounded-xl text-xs bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700" data-i18n="cancelBtn">Отмена</button>
+                    <button class="w-2/3 bg-blue-600 text-white font-bold py-2.5 rounded-xl hover:bg-blue-700 text-xs shadow-md" data-i18n="loginSubmit">Авторизоваться</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    // ============================================================
+    // TRANSLATIONS
+    // ============================================================
+    const TRANSLATIONS = {
+        ru: {
+            darkBtn:       'Тёмная',
+            lightBtn:      'Светлая',
+            cabinet:       'Личный кабинет',
+            badge:         'ИИ Мониторинг Безопасности',
+            scanTitle:     'Проверить на фишинг и скам',
+            scanDesc:      'Вставьте ссылку или подозрительное сообщение — нейросеть ATLAS мгновенно определит угрозу.',
+            scanPlaceholder:'Ссылка или текст сообщения... (например, instagram-security.com)',
+            scanBtn:       'Запустить тест',
+            scanning:      'Нейросеть анализирует домен, структуру и паттерны обмана...',
+            targetLabel:   'Цель проверки',
+            catLabel:      'Категория',
+            riskLabel:     'Вероятность угрозы',
+            historyTitle:  'Журнал проверок сессии',
+            historyEmpty:  'Результаты проверок появятся здесь.',
+            sosTitle:      'Куда обращаться, если вас обманули?',
+            sosDesc:       'Если вы уже ввели данные карты или отправили деньги — действуйте немедленно:',
+            sos1:          'Служба 102',
+            sos1sub:       'МВД Киберполиция',
+            sos2:          'Telegram Бот',
+            sos2sub:       'Подать жалобу на скам',
+            sos3:          'Ваш Банк',
+            sos3sub:       'Блокировка карт 24/7',
+            chatTitle:     'Консультант ATLAS AI',
+            chatWelcome:   'Привет! Я ATLAS — ваш ИИ-консультант по кибербезопасности. Опишите подозрительное сообщение или ссылку, и я помогу разобраться.',
+            chatPlaceholder:'Спроси у ATLAS (напр: выиграла приз)...',
+            footer:        '© 2026 ScamShield. Разработано на хакатоне AI-Менеджмента.',
+            loginTab:      'Вход',
+            registerTab:   'Регистрация',
+            loginLabel:    'Логин / Email',
+            passLabel:     'Пароль',
+            cancelBtn:     'Отмена',
+            loginSubmit:   'Авторизоваться',
+            backendErr:    'Ошибка соединения с бэкендом. Убедитесь что сервер запущен на порту 8000.',
+            serverErr:     'Ошибка соединения с сервером. Проверьте что бэкенд запущен.',
+        },
+        kg: {
+            darkBtn:       'Күңүрт',
+            lightBtn:      'Жарык',
+            cabinet:       'Жеке кабинет',
+            badge:         'ИИ Коопсуздук Мониторинги',
+            scanTitle:     'Фишинг жана скамды текшерүү',
+            scanDesc:      'Шилтемени же шектүү билдирүүнү коюңуз — ATLAS нейросети коркунучту дароо аныктайт.',
+            scanPlaceholder:'Шилтеме же билдирүү... (мисалы, instagram-security.com)',
+            scanBtn:       'Текшерүүнү баштоо',
+            scanning:      'Нейросет домен, структура жана алдамчылык паттерндерин анализдейт...',
+            targetLabel:   'Текшерүү максаты',
+            catLabel:      'Категория',
+            riskLabel:     'Коркунуч ыктымалдыгы',
+            historyTitle:  'Сессия текшерүүлөрүнүн журналы',
+            historyEmpty:  'Текшерүү натыйжалары бул жерде пайда болот.',
+            sosTitle:      'Алдагандан кийин кайда кайрылуу керек?',
+            sosDesc:       'Эгер карта маалыматтарыңызды киргизсеңиз же акча жөнөтсөңүз — дароо аракет кылыңыз:',
+            sos1:          '102 кызматы',
+            sos1sub:       'ИИМ Киберполиция',
+            sos2:          'Telegram Бот',
+            sos2sub:       'Скамга даттануу берүү',
+            sos3:          'Сиздин Банк',
+            sos3sub:       'Карталарды 24/7 бөгөттөө',
+            chatTitle:     'ATLAS AI Кеңешчиси',
+            chatWelcome:   'Салам! Мен ATLAS — сиздин киберкоопсуздук боюнча ИИ-кеңешчиңизмин. Шектүү билдирүүнү же шилтемени сүрөттөңүз, мен жардам берем.',
+            chatPlaceholder:'ATLASтан сура (мис: утуш жуттум)...',
+            footer:        '© 2026 ScamShield. AI-Менеджмент хакатонунда иштелип чыккан.',
+            loginTab:      'Кирүү',
+            registerTab:   'Катталуу',
+            loginLabel:    'Логин / Email',
+            passLabel:     'Сырсөз',
+            cancelBtn:     'Жокко чыгаруу',
+            loginSubmit:   'Кирүү',
+            backendErr:    'Бэкенд катасы. Сервер 8000-портто иштеп жатканын текшириңиз.',
+            serverErr:     'Сервер менен байланыш катасы. Бэкенд иштеп жатканын текшириңиз.',
+        }
+    };
+
+    let currentLang = 'ru';
+
+    function applyLang(lang) {
+        currentLang = lang;
+        const t = TRANSLATIONS[lang];
+
+        // Text nodes
+        document.querySelectorAll('[data-i18n]').forEach(el => {
+            const key = el.getAttribute('data-i18n');
+            if (t[key] !== undefined) el.textContent = t[key];
+        });
+
+        // Placeholders
+        document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+            const key = el.getAttribute('data-i18n-placeholder');
+            if (t[key] !== undefined) el.placeholder = t[key];
+        });
+
+        // Theme button label (respects current dark state)
+        const isDark = document.documentElement.classList.contains('dark');
+        document.getElementById('theme-toggle').innerHTML =
+            isDark ? `☀️ ${t.lightBtn}` : `🌙 ${t.darkBtn}`;
+
+        // Active lang button styling
+        document.getElementById('lang-ru').className =
+            `text-xs font-black px-2.5 py-1.5 rounded-lg transition-all ${lang === 'ru' ? 'bg-blue-600 text-white' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600'}`;
+        document.getElementById('lang-kg').className =
+            `text-xs font-black px-2.5 py-1.5 rounded-lg transition-all ${lang === 'kg' ? 'bg-blue-600 text-white' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600'}`;
+    }
+
+    document.getElementById('lang-ru').addEventListener('click', () => applyLang('ru'));
+    document.getElementById('lang-kg').addEventListener('click', () => applyLang('kg'));
+
+    // ============================================================
+    // DARK MODE
+    // ============================================================
+    document.getElementById('theme-toggle').addEventListener('click', () => {
+        const isDark = document.documentElement.classList.toggle('dark');
+        const t = TRANSLATIONS[currentLang];
+        document.getElementById('theme-toggle').innerHTML = isDark ? `☀️ ${t.lightBtn}` : `🌙 ${t.darkBtn}`;
+    });
+
+    // ============================================================
+    // DOM REFS
+    // ============================================================
+    const urlInput      = document.getElementById('url-input');
+    const checkBtn      = document.getElementById('check-btn');
+    const loadingScreen = document.getElementById('loading-screen');
+    const verdictScreen = document.getElementById('verdict-screen');
+    const historyList   = document.getElementById('history-list');
+    const chatMessages  = document.getElementById('chat-messages');
+    const chatInput     = document.getElementById('chat-input');
+    const chatSendBtn   = document.getElementById('chat-send-btn');
+    const cabinetBtn    = document.getElementById('cabinet-btn');
+    const loginModal    = document.getElementById('login-modal');
+    const modalCancelBtn= document.getElementById('modal-cancel-btn');
+
+    const API_BASE = "http://127.0.0.1:8000";
+
+    // ============================================================
+    // SCANNER
+    // ============================================================
+    checkBtn.addEventListener('click', async () => {
+        const val = urlInput.value.trim();
+        if (!val) return;
+
+        checkBtn.disabled = true;
+        loadingScreen.classList.remove('hidden');
+        verdictScreen.classList.add('hidden');
+
+        try {
+            const res = await fetch(`${API_BASE}/scan`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text: val })
+            });
+            const result = await res.json();
+
+            document.getElementById('result-url').textContent = val;
+            document.getElementById('result-reason').textContent = result.reason;
+            document.getElementById('result-type').textContent = result.category;
+            document.getElementById('result-risk').textContent = result.risk;
+
+            const badge = document.getElementById('result-status-badge');
+
+            if (result.status === 'SAFE') {
+                badge.textContent = '🛡 SAFE';
+                badge.className = 'px-3 py-1 rounded-xl text-xs font-bold bg-emerald-100 text-emerald-700 whitespace-nowrap';
+                verdictScreen.className = 'border rounded-2xl p-6 text-left shadow-md bg-emerald-500/5 border-emerald-500/30 transition-all duration-300';
+            } else if (result.status === 'MALICIOUS') {
+                badge.textContent = '❌ MALICIOUS';
+                badge.className = 'px-3 py-1 rounded-xl text-xs font-bold bg-red-100 text-red-700 whitespace-nowrap';
+                verdictScreen.className = 'border rounded-2xl p-6 text-left shadow-md bg-red-500/5 border-red-500/30 transition-all duration-300';
+            } else {
+                badge.textContent = '⚠ SUSPICIOUS';
+                badge.className = 'px-3 py-1 rounded-xl text-xs font-bold bg-yellow-100 text-yellow-700 whitespace-nowrap';
+                verdictScreen.className = 'border rounded-2xl p-6 text-left shadow-md bg-yellow-500/5 border-yellow-500/30 transition-all duration-300';
+            }
+
+            verdictScreen.classList.remove('hidden');
+            addToHistory(val, result);
+
+        } catch (err) {
+            alert(TRANSLATIONS[currentLang].backendErr);
+        }
+
+        loadingScreen.classList.add('hidden');
+        checkBtn.disabled = false;
+    });
+
+    urlInput.addEventListener('keydown', e => { if (e.key === 'Enter') checkBtn.click(); });
+
+    // ============================================================
+    // HISTORY
+    // ============================================================
+    function addToHistory(url, result) {
+        const empty = document.getElementById('history-empty');
+        if (empty) empty.remove();
+
+        const icons = { SAFE: '🟢', SUSPICIOUS: '🟡', MALICIOUS: '🔴' };
+        const icon = icons[result.status] || '⚪';
+
+        const item = document.createElement('div');
+        item.className = 'flex items-center justify-between text-xs border border-slate-100 dark:border-slate-700 rounded-xl px-3 py-2 bg-slate-50 dark:bg-slate-800';
+        item.innerHTML = `
+            <span class="font-mono truncate max-w-[60%] text-slate-700 dark:text-slate-300">${icon} ${url}</span>
+            <span class="text-slate-400 shrink-0">${result.category} · ${result.risk}</span>
+        `;
+        historyList.prepend(item);
+    }
+
+    // ============================================================
+    // CHAT
+    // ============================================================
+    function appendMessage(role, text) {
+        const isBot = role === 'bot';
+        const wrapper = document.createElement('div');
+        wrapper.className = `flex items-start gap-2 ${isBot ? '' : 'flex-row-reverse'}`;
+
+        const avatar = document.createElement('div');
+        avatar.className = `w-6 h-6 rounded-full flex items-center justify-center shrink-0 mt-0.5 text-xs ${
+            isBot ? 'bg-blue-100 dark:bg-blue-900 text-blue-600' : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
+        }`;
+        avatar.textContent = isBot ? '🤖' : '👤';
+
+        const bubble = document.createElement('div');
+        bubble.className = isBot
+            ? 'bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-600 rounded-2xl rounded-tl-sm px-3 py-2.5 max-w-[85%] text-xs leading-relaxed text-slate-700 dark:text-slate-300'
+            : 'bg-blue-600 text-white rounded-2xl rounded-tr-sm px-3 py-2.5 max-w-[85%] text-xs leading-relaxed';
+        bubble.textContent = text;
+
+        wrapper.appendChild(avatar);
+        wrapper.appendChild(bubble);
+        chatMessages.appendChild(wrapper);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    function appendTyping() {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'flex items-start gap-2';
+        wrapper.id = 'typing-indicator';
+        wrapper.innerHTML = `
+            <div class="w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center shrink-0 mt-0.5 text-xs">🤖</div>
+            <div class="bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-600 rounded-2xl rounded-tl-sm px-3 py-2.5">
+                <span class="flex gap-1 items-center h-4">
+                    <span class="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce" style="animation-delay:0ms"></span>
+                    <span class="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce" style="animation-delay:150ms"></span>
+                    <span class="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce" style="animation-delay:300ms"></span>
+                </span>
+            </div>`;
+        chatMessages.appendChild(wrapper);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    async function sendChat() {
+        const text = chatInput.value.trim();
+        if (!text) return;
+
+        appendMessage('user', text);
+        chatInput.value = '';
+        chatSendBtn.disabled = true;
+        appendTyping();
+
+        try {
+            const res = await fetch(`${API_BASE}/chat`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message: text })
+            });
+            const data = await res.json();
+            document.getElementById('typing-indicator')?.remove();
+            appendMessage('bot', data.reply);
+        } catch {
+            document.getElementById('typing-indicator')?.remove();
+            appendMessage('bot', TRANSLATIONS[currentLang].serverErr);
+        }
+
+        chatSendBtn.disabled = false;
+        chatInput.focus();
+    }
+
+    chatSendBtn.addEventListener('click', sendChat);
+    chatInput.addEventListener('keydown', e => { if (e.key === 'Enter') sendChat(); });
+
+    // ============================================================
+    // AUTH MODAL
+    // ============================================================
+    cabinetBtn.addEventListener('click', () => {
+        loginModal.classList.remove('hidden');
+        loginModal.classList.add('flex');
+    });
+    modalCancelBtn.addEventListener('click', () => {
+        loginModal.classList.add('hidden');
+        loginModal.classList.remove('flex');
+    });
+    loginModal.addEventListener('click', e => {
+        if (e.target === loginModal) {
+            loginModal.classList.add('hidden');
+            loginModal.classList.remove('flex');
+        }
+    });
+    </script>
+</body>
+</html>
