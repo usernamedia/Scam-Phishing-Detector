@@ -1,7 +1,0 @@
-fastapi
-uvicorn[standard]
-requests
-python-whois
-python-dotenv
-pydantic
-groq
